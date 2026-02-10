@@ -6,16 +6,12 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.provider.Settings
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.edit
-import com.geeksville.mesh.analytics.AnalyticsProvider
 
 fun isGooglePlayAvailable(context: Context): Boolean = false
 
 open class GeeksvilleApplication : Application(), Logging {
 
     companion object {
-        lateinit var analytics: AnalyticsProvider
         var currentActivity: Activity? = null
         private val backstack = mutableListOf<Activity>()
     }
@@ -61,30 +57,8 @@ open class GeeksvilleApplication : Application(), Logging {
         getSharedPreferences("analytics-prefs", Context.MODE_PRIVATE)
     }
 
-    var isAnalyticsAllowed: Boolean
-        get() = analyticsPrefs.getBoolean("allowed", true)
-        set(value) {
-            analyticsPrefs.edit {
-                putBoolean("allowed", value)
-            }
-
-            // Change the flag with the providers
-            analytics.setEnabled(value && !isInTestLab) // Never do analytics in the test lab
-        }
-
-    fun askToRate(activity: AppCompatActivity) {
-        // do nothing
-    }
-
     override fun onCreate() {
         super.onCreate()
-
-        val googleAnalytics = com.geeksville.mesh.analytics.GoogleAnalytics(this)
-        analytics = googleAnalytics
-
-        // Set analytics per prefs
-        isAnalyticsAllowed = isAnalyticsAllowed
-
         registerActivityLifecycleCallbacks(lifecycleCallbacks)
     }
 }

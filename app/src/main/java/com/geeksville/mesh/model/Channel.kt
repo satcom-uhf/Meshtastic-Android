@@ -46,13 +46,13 @@ data class Channel(
             if (loraConfig.bandwidth != 0)
                 "Unset"
             else when (loraConfig.modemPreset) {
-                ModemPreset.SHORT_FAST -> "ShortFast"
-                ModemPreset.SHORT_SLOW -> "ShortSlow"
-                ModemPreset.MEDIUM_FAST -> "MediumFast"
-                ModemPreset.MEDIUM_SLOW -> "MediumSlow"
-                ModemPreset.LONG_FAST -> "LongFast"
-                ModemPreset.LONG_SLOW -> "LongSlow"
-                ModemPreset.VERY_LONG_SLOW -> "VLongSlow"
+                ModemPreset.SHORT_FAST -> "Общий СК6"
+                ModemPreset.SHORT_SLOW -> "Общий СК5"
+                ModemPreset.MEDIUM_FAST -> "Общий СК5"
+                ModemPreset.MEDIUM_SLOW -> "Общий СК4"
+                ModemPreset.LONG_FAST -> "Общий СК3"
+                ModemPreset.LONG_SLOW -> "Общий СК2"
+                ModemPreset.VERY_LONG_SLOW -> "Общий СК1"
                 else -> "Invalid"
             }
         }

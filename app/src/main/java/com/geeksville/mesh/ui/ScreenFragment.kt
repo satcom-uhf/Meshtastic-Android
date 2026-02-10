@@ -12,11 +12,9 @@ open class ScreenFragment(private val screenName: String) : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        GeeksvilleApplication.analytics.sendScreenView(screenName)
     }
 
     override fun onPause() {
-        GeeksvilleApplication.analytics.endScreenView()
         super.onPause()
     }
 }

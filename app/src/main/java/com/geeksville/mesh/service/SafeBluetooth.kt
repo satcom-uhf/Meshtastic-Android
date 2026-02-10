@@ -101,7 +101,6 @@ class SafeBluetooth(private val context: Context, private val device: BluetoothD
     private val mHandler: Handler = Handler(Looper.getMainLooper())
 
     fun restartBle() {
-        GeeksvilleApplication.analytics.track("ble_restart") // record # of times we needed to use this nasty hack
         errormsg("Doing emergency BLE restart")
         context.bluetoothManager?.adapter?.let { adp ->
             if (adp.isEnabled) {

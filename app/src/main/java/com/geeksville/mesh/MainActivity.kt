@@ -20,8 +20,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -53,9 +53,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import java.nio.charset.Charset
 import java.text.DateFormat
 import java.util.Date
 import javax.inject.Inject
+
 
 /*
 UI design
@@ -105,6 +107,8 @@ eventually use bottom navigation bar to switch between, Members, Chat, Channel, 
 eventually:
   make a custom theme: https://github.com/material-components/material-components-android/tree/master/material-theme-builder
 */
+
+val utf8: Charset = Charset.forName("UTF-8")
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity(), Logging {
@@ -199,8 +203,6 @@ class MainActivity : AppCompatActivity(), Logging {
             AppCompatDelegate.setDefaultNightMode(
                 prefs.getInt("theme", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
             )
-            // Ask user to rate in play store
-            (application as GeeksvilleApplication).askToRate(this)
         }
 
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -650,7 +652,6 @@ class MainActivity : AppCompatActivity(), Logging {
 
     override fun onStart() {
         super.onStart()
-
         bluetoothViewModel.enabled.observe(this) { enabled ->
             if (!enabled && !requestedEnable && scanModel.selectedBluetooth) {
                 requestedEnable = true
@@ -712,8 +713,9 @@ class MainActivity : AppCompatActivity(), Logging {
     }
 
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
-        menu.findItem(R.id.stress_test).isVisible =
-            BuildConfig.DEBUG // only show stress test for debug builds (for now)
+        var checkbox=menu.findItem(R.id.stress_test)
+        checkbox.isVisible =true
+        checkbox.isChecked=MeshService.ttsEnabled
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -740,20 +742,10 @@ class MainActivity : AppCompatActivity(), Logging {
                 return true
             }
             R.id.stress_test -> {
-                fun postPing() {
-                    // Send ping message and arrange delayed recursion.
-                    debug("Sending ping")
-                    val str = "Ping " + DateFormat.getTimeInstance(DateFormat.MEDIUM)
-                        .format(Date(System.currentTimeMillis()))
-                    model.sendMessage(str)
-                    handler.postDelayed({ postPing() }, 30000)
-                }
                 item.isChecked = !item.isChecked // toggle ping test
-                if (item.isChecked)
-                    postPing()
-                else
-                    handler.removeCallbacksAndMessages(null)
-                return true
+                MeshService.ttsEnabled = item.isChecked
+                    //handler.removeCallbacksAndMessages(null)
+                return MeshService.ttsEnabled;
             }
             R.id.device_settings -> {
                 supportFragmentManager.beginTransaction()

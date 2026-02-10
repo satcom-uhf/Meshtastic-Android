@@ -7,7 +7,6 @@ import android.os.IBinder
 import android.os.RemoteException
 import androidx.core.app.ServiceCompat
 import androidx.core.content.edit
-import com.geeksville.mesh.analytics.DataPair
 import com.geeksville.mesh.android.GeeksvilleApplication
 import com.geeksville.mesh.android.Logging
 import com.geeksville.mesh.concurrent.handledLaunch
@@ -49,6 +48,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import javax.inject.Inject
 import kotlin.math.absoluteValue
+import android.speech.tts.TextToSpeech
 
 /**
  * Handles all the communication with android apps.  Also keeps an internal model
@@ -58,7 +58,7 @@ import kotlin.math.absoluteValue
  * Warning: do not override toString, it causes infinite recursion on some androids (because contextWrapper.getResources calls to string
  */
 @AndroidEntryPoint
-class MeshService : Service(), Logging {
+class MeshService : Service(), Logging, TextToSpeech.OnInitListener {
     @Inject
     lateinit var dispatchers: CoroutineDispatchers
 
@@ -133,6 +133,7 @@ class MeshService : Service(), Logging {
         /** The minimmum firmware version we know how to talk to. We'll still be able to talk to 1.0 firmwares but only well enough to ask them to firmware update
          */
         val minDeviceVersion = DeviceVersion("1.3.43")
+        var ttsEnabled=true;
     }
 
     enum class ConnectionState {
@@ -155,7 +156,17 @@ class MeshService : Service(), Logging {
 
     private fun getSenderName(packet: DataPacket?): String {
         val name = nodeDBbyID[packet?.from]?.user?.longName
-        return name ?: getString(R.string.unknown_username)
+        return name ?: "Неизвестный пользователь."
+    }
+    var tts: TextToSpeech? = null;
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            val result = tts!!.setLanguage(Locale("ru"))
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                //Log.e("TTS","The Language not supported!")
+            } else {
+            }
+        }
     }
 
     private val notificationSummary
@@ -229,10 +240,19 @@ class MeshService : Service(), Logging {
         startPacketQueue()
     }
 
-    private fun updateMessageNotification(message: DataPacket) =
+    private fun updateMessageNotification(message: DataPacket) {
+        var callsign=getSenderName(message)
+        var msgtext=message.bytes!!.toString(utf8)
         serviceNotifications.updateMessageNotification(
-            getSenderName(message), message.bytes!!.decodeToString()
+            callsign, msgtext
         )
+        if(ttsEnabled){
+
+            tts!!.speak("${callsign.filter { it.isLetterOrDigit() }} сообщил: $msgtext", TextToSpeech.QUEUE_ADD, null,message.id.toString())
+        }
+
+    }
+
 
     override fun onCreate() {
         super.onCreate()
@@ -252,7 +272,7 @@ class MeshService : Service(), Logging {
             .launchIn(serviceScope)
         localConfigRepository.localConfigFlow.onEach { localConfig = it }
             .launchIn(serviceScope)
-
+        tts=TextToSpeech(this, this);
         // the rest of our init will happen once we are in radioConnection.onServiceConnected
     }
 
@@ -296,6 +316,10 @@ class MeshService : Service(), Logging {
 
         super.onDestroy()
         serviceJob.cancel()
+        if (tts != null) {
+            tts!!.stop()
+            tts!!.shutdown()
+        }
     }
 
     ///
@@ -680,16 +704,6 @@ class MeshService : Service(), Logging {
                 if (shouldBroadcast)
                     serviceBroadcasts.broadcastReceivedData(dataPacket)
 
-                GeeksvilleApplication.analytics.track(
-                    "num_data_receive",
-                    DataPair(1)
-                )
-
-                GeeksvilleApplication.analytics.track(
-                    "data_receive",
-                    DataPair("num_bytes", bytes.size),
-                    DataPair("type", data.portnumValue)
-                )
             }
         }
     }
@@ -986,27 +1000,6 @@ class MeshService : Service(), Logging {
         maybeUpdateServiceStatusNotification()
     }
 
-    /**
-     * Send in analytics about mesh connection
-     */
-    private fun reportConnection() {
-        val radioModel = DataPair("radio_model", myNodeInfo?.model ?: "unknown")
-        GeeksvilleApplication.analytics.track(
-            "mesh_connect",
-            DataPair("num_nodes", numNodes),
-            DataPair("num_online", numOnlineNodes),
-            radioModel
-        )
-
-        // Once someone connects to hardware start tracking the approximate number of nodes in their mesh
-        // this allows us to collect stats on what typical mesh size is and to tell difference between users who just
-        // downloaded the app, vs has connected it to some hardware.
-        GeeksvilleApplication.analytics.setUserInfo(
-            DataPair("num_nodes", numNodes),
-            radioModel
-        )
-    }
-
     private var sleepTimeout: Job? = null
 
     /// msecs since 1970 we started this connection
@@ -1027,11 +1020,6 @@ class MeshService : Service(), Logging {
             if (connectTimeMsec != 0L) {
                 val now = System.currentTimeMillis()
                 connectTimeMsec = 0L
-
-                GeeksvilleApplication.analytics.track(
-                    "connected_seconds",
-                    DataPair((now - connectTimeMsec) / 1000.0)
-                )
             }
 
             // Have our timeout fire in the approprate number of seconds
@@ -1059,13 +1047,6 @@ class MeshService : Service(), Logging {
 
             stopPacketQueue()
             stopLocationRequests()
-
-            GeeksvilleApplication.analytics.track(
-                "mesh_disconnect",
-                DataPair("num_nodes", numNodes),
-                DataPair("num_online", numOnlineNodes)
-            )
-            GeeksvilleApplication.analytics.track("num_nodes", DataPair(numNodes))
 
             // broadcast an intent with our new connection state
             serviceBroadcasts.broadcastConnection()
@@ -1305,32 +1286,6 @@ class MeshService : Service(), Logging {
         }
     }
 
-    private fun sendAnalytics() {
-        val myInfo = rawMyNodeInfo
-        val mi = myNodeInfo
-        if (myInfo != null && mi != null) {
-            /// Track types of devices and firmware versions in use
-            GeeksvilleApplication.analytics.setUserInfo(
-                DataPair("firmware", mi.firmwareVersion),
-                DataPair("has_gps", mi.hasGPS),
-                DataPair("hw_model", mi.model),
-                DataPair("dev_error_count", myInfo.errorCount)
-            )
-
-            if (myInfo.errorCode != MeshProtos.CriticalErrorCode.UNSPECIFIED && myInfo.errorCode != MeshProtos.CriticalErrorCode.NONE) {
-                GeeksvilleApplication.analytics.track(
-                    "dev_error",
-                    DataPair("code", myInfo.errorCode.number),
-                    DataPair("address", myInfo.errorAddress),
-
-                    // We also include this info, because it is required to correctly decode address from the map file
-                    DataPair("firmware", mi.firmwareVersion),
-                    DataPair("hw_model", mi.model)
-                )
-            }
-        }
-    }
-
     /**
      * Update the nodeinfo (called from either new API version or the old one)
      */
@@ -1362,7 +1317,6 @@ class MeshService : Service(), Logging {
         // broadcast an intent with our new connection state
         serviceBroadcasts.broadcastConnection()
         onNodeDBChanged()
-        reportConnection()
     }
 
     private fun handleConfigComplete(configCompleteId: Int) {
@@ -1391,8 +1345,6 @@ class MeshService : Service(), Logging {
 
                 regenMyNodeInfo() // we have a node db now, so can possibly find a better hwmodel
                 myNodeInfo = newMyNodeInfo // we might have just updated myNodeInfo
-
-                sendAnalytics()
 
                 if (deviceVersion < minDeviceVersion || appVersion < minAppVersion) {
                     info("Device firmware or app is too old, faking config so firmware update can occur")
@@ -1676,17 +1628,6 @@ class MeshService : Service(), Logging {
 
                 // Keep a record of DataPackets, so GUIs can show proper chat history
                 rememberDataPacket(p)
-
-                GeeksvilleApplication.analytics.track(
-                    "data_send",
-                    DataPair("num_bytes", p.bytes.size),
-                    DataPair("type", p.dataType)
-                )
-
-                GeeksvilleApplication.analytics.track(
-                    "num_data_sent",
-                    DataPair(1)
-                )
             }
         }
 

@@ -47,8 +47,6 @@ class SharedLocationManager constructor(
 
         info("Starting location updates with minTimeMs=${timeTravelMinimum}ms and minDistanceM=${distanceTravelMinimum}m")
         _receivingLocationUpdates.value = true
-        GeeksvilleApplication.analytics.track("location_start") // Figure out how many users needed to use the phone GPS
-
         try {
             locationManager.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER,
@@ -64,7 +62,6 @@ class SharedLocationManager constructor(
         awaitClose {
             info("Stopping location requests")
             _receivingLocationUpdates.value = false
-            GeeksvilleApplication.analytics.track("location_stop")
             locationManager.removeUpdates(callback) // clean up when Flow collection ends
         }
     }.shareIn(

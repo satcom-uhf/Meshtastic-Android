@@ -245,7 +245,7 @@ class UsersFragment : ScreenFragment("Users"), Logging {
                 if (info != null) {
                     val text =
                         String.format(
-                            "ChUtil %.1f%% AirUtilTX %.1f%%",
+                            "Нагрузка канала %.1f%% TX %.1f%%",
                             n.deviceMetrics?.channelUtilization ?: info.channelUtilization,
                             n.deviceMetrics?.airUtilTx ?: info.airUtilTx
                         )
@@ -254,7 +254,7 @@ class UsersFragment : ScreenFragment("Users"), Logging {
                 }
             } else {
                 if ((n.snr < 100f) && (n.rssi < 0)) {
-                    val text = String.format("rssi:%d snr:%.1f", n.rssi, n.snr)
+                    val text = String.format("Сигнал:%d С/Ш:%.1f", n.rssi, n.snr)
                     holder.signalView.text = text
                     holder.signalView.visibility = View.VISIBLE
                 } else {

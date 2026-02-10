@@ -91,9 +91,23 @@ class UIViewModel @Inject constructor(
     private val preferences: SharedPreferences
 ) : ViewModel(), Logging {
 
-    var actionBarMenu: Menu? = null
-    var meshService: IMeshService? = null
     val nodeDB = NodeDB(this)
+    val channelsMap = mapOf(
+        "UNSET" to "S1",
+        "US" to "S2",
+        "EU_433" to "S3",
+        "EU_868" to "S4",
+        "CN" to "S5",
+        "JP" to "S6",
+        "ANZ" to "S7",
+        "KR" to "S8",
+        "TW" to "S9",
+        "RU" to "S10",
+        "IN" to "E1",
+        "NZ_865" to "E2",
+        "TH" to "E3",
+        "LORA_24" to "E4"
+    )
 
     private val _meshLog = MutableStateFlow<List<MeshLog>>(emptyList())
     val meshLog: StateFlow<List<MeshLog>> = _meshLog
@@ -235,6 +249,10 @@ class UIViewModel @Inject constructor(
         fun getPreferences(context: Context): SharedPreferences =
             context.getSharedPreferences("ui-prefs", Context.MODE_PRIVATE)
     }
+
+    var actionBarMenu: Menu? = null
+
+    var meshService: IMeshService? = null
 
     /// Connection state to our radio device
     private val _connectionState = MutableLiveData(MeshService.ConnectionState.DISCONNECTED)

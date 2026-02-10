@@ -24,7 +24,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import com.geeksville.mesh.analytics.DataPair
 import com.geeksville.mesh.android.GeeksvilleApplication
 import com.geeksville.mesh.android.Logging
 import com.geeksville.mesh.android.hideKeyboard
@@ -85,10 +84,6 @@ class SettingsFragment : ScreenFragment("Settings"), Logging {
         model.meshService?.let { service ->
 
             debug("User started firmware update")
-            GeeksvilleApplication.analytics.track(
-                "firmware_update",
-                DataPair("content_type", "start")
-            )
             binding.updateFirmwareButton.isEnabled = false // Disable until things complete
             binding.updateProgressBar.visibility = View.VISIBLE
             binding.updateProgressBar.progress = 0 // start from scratch
@@ -130,10 +125,6 @@ class SettingsFragment : ScreenFragment("Settings"), Logging {
             } else
                 when (progress) {
                     SoftwareUpdateService.ProgressSuccess -> {
-                        GeeksvilleApplication.analytics.track(
-                            "firmware_update",
-                            DataPair("content_type", "success")
-                        )
                         binding.scanStatusText.setText(R.string.update_successful)
                         binding.updateProgressBar.visibility = View.GONE
                     }
@@ -142,10 +133,6 @@ class SettingsFragment : ScreenFragment("Settings"), Logging {
                         binding.updateProgressBar.visibility = View.GONE
                     }
                     else -> {
-                        GeeksvilleApplication.analytics.track(
-                            "firmware_update",
-                            DataPair("content_type", "failure")
-                        )
                         binding.scanStatusText.setText(R.string.update_failed)
                         binding.updateProgressBar.visibility = View.VISIBLE
                     }
@@ -219,7 +206,7 @@ class SettingsFragment : ScreenFragment("Settings"), Logging {
             position: Int,
             id: Long
         ) {
-            val item = parent.getItemAtPosition(position) as String?
+            val item = regions.elementAt(position)
             val asProto = item!!.let { ConfigProtos.Config.LoRaConfig.RegionCode.valueOf(it) }
             exceptionToSnackbar(requireView()) {
                 debug("regionSpinner onItemSelected $asProto")
@@ -238,7 +225,7 @@ class SettingsFragment : ScreenFragment("Settings"), Logging {
         it != ConfigProtos.Config.LoRaConfig.RegionCode.UNRECOGNIZED
     }.map {
         it.name
-    }.sorted()
+    }
 
     private fun initCommonUI() {
 
@@ -285,7 +272,8 @@ class SettingsFragment : ScreenFragment("Settings"), Logging {
         // init our region spinner
         val spinner = binding.regionSpinner
         val regionAdapter =
-            ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, regions)
+            ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item,
+                regions.map{ i-> if(model.channelsMap[i]==null) i.toString() else model.channelsMap[i] })
         regionAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinner.adapter = regionAdapter
 
@@ -309,7 +297,7 @@ class SettingsFragment : ScreenFragment("Settings"), Logging {
                 val configCount = it.allFields.size
                 val configTotal = ConfigProtos.Config.getDescriptor().fields.size
                 if (configCount > 0)
-                    binding.scanStatusText.text = "Device config ($configCount / $configTotal)"
+                    binding.scanStatusText.text = "Конфигурация устройства ($configCount / 7)"
             } else updateNodeInfo()
         }
 
@@ -318,7 +306,7 @@ class SettingsFragment : ScreenFragment("Settings"), Logging {
                 val moduleCount = it.allFields.size
                 val moduleTotal = ModuleConfigProtos.ModuleConfig.getDescriptor().fields.size
                 if (moduleCount > 0)
-                    binding.scanStatusText.text = "Module config ($moduleCount / $moduleTotal)"
+                    binding.scanStatusText.text = "Конфигурация модуля ($moduleCount / 8)"
             } else updateNodeInfo()
         }
 
@@ -326,7 +314,7 @@ class SettingsFragment : ScreenFragment("Settings"), Logging {
             if (!model.isConnected()) it.protobuf.let { ch ->
                 val maxChannels = model.myNodeInfo.value?.maxChannels
                 if (!ch.hasLoraConfig() && ch.settingsCount > 0)
-                    binding.scanStatusText.text = "Channels (${ch.settingsCount} / $maxChannels)"
+                    binding.scanStatusText.text = "Конфигурация канала (${ch.settingsCount} / 8)"
             }
         }
 
@@ -418,33 +406,7 @@ class SettingsFragment : ScreenFragment("Settings"), Logging {
 
         val app = (requireContext().applicationContext as GeeksvilleApplication)
         val isGooglePlayAvailable = isGooglePlayAvailable(requireContext())
-        val isAnalyticsAllowed = app.isAnalyticsAllowed && isGooglePlayAvailable
 
-        // Set analytics checkbox
-        binding.analyticsOkayCheckbox.isEnabled = isGooglePlayAvailable
-        binding.analyticsOkayCheckbox.isChecked = isAnalyticsAllowed
-
-        binding.analyticsOkayCheckbox.setOnCheckedChangeListener { _, isChecked ->
-            debug("User changed analytics to $isChecked")
-            app.isAnalyticsAllowed = isChecked
-            binding.reportBugButton.isEnabled = isAnalyticsAllowed
-        }
-
-        // report bug button only enabled if analytics is allowed
-        binding.reportBugButton.isEnabled = isAnalyticsAllowed
-        binding.reportBugButton.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.report_a_bug)
-                .setMessage(getString(R.string.report_bug_text))
-                .setNeutralButton(R.string.cancel) { _, _ ->
-                    debug("Decided not to report a bug")
-                }
-                .setPositiveButton(getString(R.string.report)) { _, _ ->
-                    reportError("Clicked Report A Bug")
-                    Toast.makeText(requireContext(), "Bug report sent!", Toast.LENGTH_LONG).show()
-                }
-                .show()
-        }
     }
 
     private fun addDeviceButton(device: BTScanModel.DeviceListEntry, enabled: Boolean) {
@@ -506,6 +468,7 @@ class SettingsFragment : ScreenFragment("Settings"), Logging {
     // per https://developer.android.com/guide/topics/connectivity/bluetooth/find-ble-devices
     private fun scanLeDevice() {
         var scanning = false
+        val SCAN_PERIOD: Long = 10000 // Stops scanning after 10 seconds
 
         if (!scanning) { // Stops scanning after a pre-defined scan period.
             Handler(Looper.getMainLooper()).postDelayed({

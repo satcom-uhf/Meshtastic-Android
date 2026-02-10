@@ -16,7 +16,6 @@ import android.widget.ImageView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.asLiveData
-import com.geeksville.mesh.analytics.DataPair
 import com.geeksville.mesh.android.GeeksvilleApplication
 import com.geeksville.mesh.android.Logging
 import com.geeksville.mesh.android.hideKeyboard
@@ -140,11 +139,6 @@ class ChannelFragment : ScreenFragment("Channel"), Logging {
 
     private fun shareChannel() {
         model.channels.value.let { channels ->
-
-            GeeksvilleApplication.analytics.track(
-                "share",
-                DataPair("content_type", "channel")
-            ) // track how many times users share channels
 
             val sendIntent: Intent = Intent().apply {
                 action = Intent.ACTION_SEND

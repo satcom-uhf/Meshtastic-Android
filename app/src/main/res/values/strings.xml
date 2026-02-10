@@ -1,4 +1,5 @@
 <resources>
+    <string name="speak">speak</string>
     // Language tags native names (not available via .getDisplayLanguage)
     <string name="fr_HT" translatable="false">Kreyòl ayisyen</string>
     <string name="pt_BR" translatable="false">Português do Brasil</string>

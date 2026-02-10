@@ -241,10 +241,6 @@ class RadioInterfaceService @Inject constructor(
             warn("Ignoring setBondedDevice ${address.anonymize}, because we are already using that device")
             false
         } else {
-            // Record that this use has configured a new radio
-            GeeksvilleApplication.analytics.track(
-                "mesh_bond"
-            )
 
             // Ignore any errors that happen while closing old device
             ignoreException {
