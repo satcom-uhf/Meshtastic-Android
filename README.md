@@ -1,3 +1,8 @@
+Все работы по адаптации к MESHSAT находятся в ветке https://github.com/satcom-uhf/Meshtastic-Android/tree/feature/Satcom
+
+Оригинальный Readme:
+
+
 # Meshtastic-Android
 
 ![GitHub all releases](https://img.shields.io/github/downloads/meshtastic/meshtastic-android/total)
