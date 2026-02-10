@@ -1,5 +1,11 @@
 Все работы по адаптации к MESHSAT находятся в ветке https://github.com/satcom-uhf/Meshtastic-Android/tree/feature/Satcom
 
+Экспериментаторы:
+- Оберон
+- Монах
+- Ямал
+- Кама
+
 Оригинальный Readme:
 
 
